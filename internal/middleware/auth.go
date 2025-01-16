@@ -2,8 +2,9 @@ package middleware
 
 import (
 	"context"
-	"github.com/labstack/echo/v4"
 	"strings"
+
+	"github.com/labstack/echo/v4"
 )
 
 type ContextKey string

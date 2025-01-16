@@ -2,11 +2,12 @@ package handler
 
 import (
 	"context"
+	"log/slog"
+
 	"github.com/labstack/echo/v4"
 	"github.com/radionovel/goauth-jwt-microservice/internal/middleware"
 	"github.com/radionovel/goauth-jwt-microservice/internal/model"
 	"github.com/radionovel/goauth-jwt-microservice/internal/service"
-	"log/slog"
 )
 
 type LoginRequest struct {

@@ -2,13 +2,12 @@ package service
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/radionovel/goauth-jwt-microservice/internal/model"
 	"log/slog"
 	"strconv"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/radionovel/goauth-jwt-microservice/internal/model"
 )
 
 type jwtClaims struct {
@@ -106,10 +105,10 @@ func (s *AuthService) generateToken(userID int, secretKey string, ttl time.Durat
 	return signedToken, nil
 }
 
-func (s *AuthService) parseToken(tokenString string, secretKey string) (*jwtClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &jwtClaims{}, func(token *jwt.Token) (interface{}, error) {
+func (s *AuthService) parseToken(tokenString, secretKey string) (*jwtClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &jwtClaims{}, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
+			return nil, model.ErrUnexpectedSigningMethod
 		}
 
 		return []byte(secretKey), nil
@@ -119,13 +118,14 @@ func (s *AuthService) parseToken(tokenString string, secretKey string) (*jwtClai
 	}
 
 	if !token.Valid {
-		return nil, fmt.Errorf("invalid token")
+		return nil, model.ErrInvalidToken
 	}
 
 	claims, ok := token.Claims.(*jwtClaims)
 	if !ok {
 		slog.Error("invalid token claims")
-		return nil, nil
+
+		return nil, model.ErrInvalidClaims
 	}
 
 	slog.Info("parsed token", "claims", claims)

@@ -3,25 +3,34 @@ package service
 import (
 	"context"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/radionovel/goauth-jwt-microservice/internal/model"
+	"github.com/radionovel/goauth-jwt-microservice/internal/pkg/logger"
+	"github.com/radionovel/goauth-jwt-microservice/internal/pkg/password"
+	"github.com/radionovel/goauth-jwt-microservice/internal/storage"
 )
 
 type jwtClaims struct {
-	UserID int `json:"user_id"`
+	UserID model.UserID `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
 type AuthServiceConfig struct {
+	UserStorage  storage.UserStorage
+	TokenStorage storage.TokenStorage
+	Logger       logger.Logger
+
 	SecretKey       string
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
 }
 
 type AuthService struct {
+	userStorage storage.UserStorage
+	logger      logger.Logger
+
 	secretKey       string
 	accessTokenTTL  time.Duration
 	refreshTokenTTL time.Duration
@@ -29,6 +38,9 @@ type AuthService struct {
 
 func NewAuthService(cfg AuthServiceConfig) *AuthService {
 	return &AuthService{
+		userStorage:     cfg.UserStorage,
+		tokenStorage:    cfg.TokenStorage,
+		logger:          cfg.Logger,
 		secretKey:       cfg.SecretKey,
 		accessTokenTTL:  cfg.AccessTokenTTL,
 		refreshTokenTTL: cfg.RefreshTokenTTL,
@@ -50,16 +62,39 @@ func (s *AuthService) LoginWithCredentials(ctx context.Context, credentials *mod
 		Username: "Jon Doe",
 	}
 
+	//password.ComparePasswordHash()
+
 	return s.GenerateTokens(user.ID)
 }
 
 func (s *AuthService) Register(ctx context.Context, credentials *model.Credentials) (*model.Tokens, error) {
-	user := &model.User{
-		ID:       100,
-		Username: credentials.Username,
+	//s.logger.Debug("create new user", "username", credentials.Username)
+
+	// find user with username
+	exists, err := s.userStorage.Exists(ctx, credentials.Username)
+	if err != nil {
+		return nil, err
 	}
 
-	return s.GenerateTokens(user.ID)
+	if exists {
+		return nil, model.ErrUserAlreadyExists
+	}
+
+	salt := "asdfqwerzxcvtgby"
+	passwordHash := password.Generate(credentials.Password, salt)
+
+	userID, err := s.userStorage.Insert(ctx, &model.NewUserDTO{
+		Username:     credentials.Username,
+		PasswordHash: passwordHash,
+		Salt:         salt,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// publish event to event broker via outbox
+
+	return s.GenerateTokens(userID)
 }
 
 func (s *AuthService) ValidateToken(tokenString string) (string, error) {
@@ -68,10 +103,10 @@ func (s *AuthService) ValidateToken(tokenString string) (string, error) {
 		return "", err
 	}
 
-	return strconv.Itoa(claims.UserID), err
+	return claims.UserID.String(), err
 }
 
-func (s *AuthService) GenerateTokens(userID int) (*model.Tokens, error) {
+func (s *AuthService) GenerateTokens(userID model.UserID) (*model.Tokens, error) {
 	accessToken, err := s.generateToken(userID, s.secretKey, s.accessTokenTTL)
 	if err != nil {
 		return nil, err
@@ -88,7 +123,7 @@ func (s *AuthService) GenerateTokens(userID int) (*model.Tokens, error) {
 	}, nil
 }
 
-func (s *AuthService) generateToken(userID int, secretKey string, ttl time.Duration) (string, error) {
+func (s *AuthService) generateToken(userID model.UserID, secretKey string, ttl time.Duration) (string, error) {
 	claims := &jwtClaims{
 		userID,
 		jwt.RegisteredClaims{
@@ -131,4 +166,8 @@ func (s *AuthService) parseToken(tokenString, secretKey string) (*jwtClaims, err
 	slog.Info("parsed token", "claims", claims)
 
 	return claims, nil
+}
+
+func (s *AuthService) RevokeToken(ctx context.Context, token string) error {
+
 }

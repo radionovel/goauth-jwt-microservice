@@ -1,12 +1,32 @@
 package model
 
+import (
+	"strconv"
+)
+
+type ContextKey string
+
+const UserContextKey ContextKey = "user"
+
 type NewUserDTO struct {
-	UserProvider int
 	Username     string
-	Password     string
+	PasswordHash string
+	Salt         string
+}
+
+type UserID int
+
+func (v UserID) Int() int {
+	return int(v)
+}
+
+func (v UserID) String() string {
+	return strconv.Itoa(int(v))
 }
 
 type User struct {
-	ID       int
-	Username string
+	ID           UserID
+	Username     string
+	PasswordHash string
+	Salt         string
 }

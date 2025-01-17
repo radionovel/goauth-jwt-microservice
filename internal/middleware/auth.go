@@ -5,11 +5,8 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/radionovel/goauth-jwt-microservice/internal/model"
 )
-
-type ContextKey string
-
-const UserContextKey ContextKey = "user"
 
 type TokenValidator interface {
 	ValidateToken(token string) (string, error)
@@ -29,7 +26,7 @@ func AuthMiddleware(validator TokenValidator) echo.MiddlewareFunc {
 				return echo.ErrUnauthorized
 			}
 
-			ctxWithUser := context.WithValue(c.Request().Context(), UserContextKey, sub)
+			ctxWithUser := context.WithValue(c.Request().Context(), model.UserContextKey, sub)
 			reqWithUser := c.Request().WithContext(ctxWithUser)
 			c.SetRequest(reqWithUser)
 

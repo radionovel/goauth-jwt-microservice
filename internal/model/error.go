@@ -9,3 +9,7 @@ var (
 	ErrInvalidToken            = errors.New("invalid token")
 	ErrInvalidClaims           = errors.New("claims has invalid format")
 )
+
+var (
+	ErrUserAlreadyExists = errors.New("user already exists")
+)

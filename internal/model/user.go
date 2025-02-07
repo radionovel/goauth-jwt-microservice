@@ -2,7 +2,21 @@ package model
 
 import (
 	"strconv"
+	"time"
 )
+
+type TokenType string
+
+const (
+	AccessToken  TokenType = "access"
+	RefreshToken TokenType = "refresh"
+)
+
+type Token struct {
+	Value     string        // Сам токен
+	Type      TokenType     // Тип токена (например, Access/Refresh)
+	ExpiresIn time.Duration // Время жизни токена
+}
 
 type ContextKey string
 
@@ -14,14 +28,19 @@ type NewUserDTO struct {
 	Salt         string
 }
 
-type UserID int
+type UserID string
 
-func (v UserID) Int() int {
-	return int(v)
+func (uid UserID) Int() int {
+	id, err := strconv.Atoi(uid.String())
+	if err != nil {
+		return 0
+	}
+
+	return id
 }
 
-func (v UserID) String() string {
-	return strconv.Itoa(int(v))
+func (uid UserID) String() string {
+	return string(uid)
 }
 
 type User struct {

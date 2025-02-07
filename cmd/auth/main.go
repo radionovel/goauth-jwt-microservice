@@ -1,56 +1,37 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"log/slog"
+	"context"
 	"time"
 
-	elog "github.com/labstack/gommon/log"
-
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/radionovel/goauth-jwt-microservice/internal/handler"
+	"github.com/radionovel/goauth-jwt-microservice/internal/logger"
+	"github.com/radionovel/goauth-jwt-microservice/internal/model"
 	"github.com/radionovel/goauth-jwt-microservice/internal/service"
 	"github.com/radionovel/goauth-jwt-microservice/internal/storage"
+	"go.uber.org/zap"
 )
 
 func main() {
-	router := echo.New()
-	router.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
-		StackSize: 1 << 10, // 1 KB
-		LogLevel:  elog.ERROR,
-	}))
+	jwtManager := service.NewJWTManager("my-secret-key", 15*time.Minute, 7*24*time.Hour)
+	tokenStorage := storage.NewInMemoryTokenStorage() // Предположим, есть реализация InMemory
+	logger := logger.NewConsoleLogger()               // Примерный логгер
 
-	router.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-		LogStatus: true,
-		LogURI:    true,
-		Skipper: func(c echo.Context) bool {
-			return c.Request().URL.Path == "/health"
-		},
-		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-			fmt.Printf("REQUEST: uri: %v, status: %v\n", v.URI, v.Status)
-			return nil
-		},
-	}))
+	cfgTokenService := service.TokenServiceConfig{
+		JWTManager:   jwtManager,
+		TokenStorage: tokenStorage,
+		Logger:       logger,
+	}
+	tokenService := service.NewTokenService(cfgTokenService)
 
-	logger := slog.Default()
+	ctx := context.Background()
+	userID := model.UserID("12345")
 
-	// @todo config
-	svcConfig := service.AuthServiceConfig{
-		Storage:         storage.NewInMemoryUserStorage(logger),
-		Logger:          logger,
-		SecretKey:       "secret",
-		AccessTokenTTL:  time.Hour,
-		RefreshTokenTTL: time.Hour * 10,
+	tokens, err := tokenService.GenerateTokens(ctx, userID)
+	if err != nil {
+		logger.Error("Failed to generate tokens", zap.Error(err))
+		return
 	}
 
-	svc := service.NewAuthService(svcConfig)
-	h := handler.NewAuthHandler(svc, logger)
-	h.RegisterRoutes(router)
-
-	//userHandler := handler.NewUserHandler(svc)
-	//userHandler.RegisterRoutes(router)
-
-	log.Fatal(router.Start(":8080"))
+	logger.Info("Access token", zap.Any("token", tokens.AccessToken))
+	logger.Info("Refresh Token", zap.Any("token", tokens.RefreshToken))
 }

@@ -26,18 +26,18 @@ func (s *inMemoryUserStorage) Insert(ctx context.Context, dto *model.NewUserDTO)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.lastUserID++
+	// s.lastUserID++
 
-	if _, exists := s.users[dto.Username]; exists {
-		return 0, model.ErrUserAlreadyExists
-	}
+	// if _, exists := s.users[dto.Username]; exists {
+	// 	return 0, model.ErrUserAlreadyExists
+	// }
 
-	s.users[dto.Username] = model.User{
-		ID:           s.lastUserID,
-		Username:     dto.Username,
-		PasswordHash: dto.PasswordHash,
-		Salt:         dto.Salt,
-	}
+	// s.users[dto.Username] = model.User{
+	// 	ID:           s.lastUserID,
+	// 	Username:     dto.Username,
+	// 	PasswordHash: dto.PasswordHash,
+	// 	Salt:         dto.Salt,
+	// }
 
 	return s.lastUserID, nil
 }
